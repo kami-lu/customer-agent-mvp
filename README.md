@@ -1,0 +1,83 @@
+# 智能客服 Agent MVP
+
+一个可运行的智能家居电商客服 Agent MVP，重点展示 AI Agent 在客服场景中的工程闭环：结构化意图路由、工具调用、业务数据库查询、轻量 RAG、会话管理和 Web/API 交互。
+
+## 功能
+
+- FastAPI 后端服务与 Swagger 文档
+- 浏览器聊天页面
+- 结构化 Router：输出 `intent`、`tool_name`、`slots`、`route_source`
+- 商品查询、订单物流查询、售后 FAQ 查询工具
+- 轻量 RAG：基于本地知识库 chunk 的 TF-IDF 相似度检索
+- SQLite 会话管理与历史消息保存
+- DeepSeek API 可选接入
+- LLM 调用失败时自动回退到规则路由和模板回复
+
+## 项目结构
+
+```text
+mvp_agent/
+  app.py                 # FastAPI 路由和服务入口
+  agent.py               # Router、工具调用、RAG 检索、DeepSeek 调用
+  db.py                  # SQLite 建表、seed 数据、会话和消息读写
+  web.py                 # 浏览器聊天页面
+  README.md              # 详细运行说明
+  PROJECT_EVOLUTION.md   # 项目演进和面试讲法
+  requirements.txt       # MVP 最小依赖
+```
+
+## 快速启动
+
+```bash
+pip install -r mvp_agent/requirements.txt
+python -m mvp_agent.app
+```
+
+访问：
+
+```text
+http://127.0.0.1:8010/chat
+```
+
+接口文档：
+
+```text
+http://127.0.0.1:8010/docs
+```
+
+## 示例问题
+
+```text
+推荐一款智能门锁
+查一下订单 SO20260611001 的物流
+智能门锁坏了怎么保修
+智能门锁怎么安装
+扫地机器人怎么维护
+```
+
+## DeepSeek 接入
+
+不设置 API Key 时，系统会使用规则路由和模板回复。设置环境变量后，会使用 DeepSeek 做结构化路由和回复生成。
+
+PowerShell：
+
+```powershell
+$env:DEEPSEEK_API_KEY="your_api_key"
+$env:DEEPSEEK_BASE_URL="https://api.deepseek.com"
+$env:DEEPSEEK_MODEL="deepseek-chat"
+python -m mvp_agent.app
+```
+
+请不要把 API Key 写入代码或提交到 GitHub。
+
+## 当前定位
+
+这是一个面试展示用的最小可运行闭环，不是完整企业级客服系统。后续可以继续扩展：
+
+- MySQL/PostgreSQL
+- 用户登录注册
+- Redis 缓存
+- embedding + 向量数据库
+- LangGraph 多节点编排
+- Docker Compose 部署
+
