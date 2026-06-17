@@ -12,6 +12,7 @@
 - 会话存储：把用户问题和助手回复写入 SQLite
 - 会话管理：支持会话列表和历史消息查询
 - SQLAlchemy ORM 数据层：默认 SQLite，可通过 `DATABASE_URL` 切换数据库
+- Alembic 数据库迁移：支持表结构版本化管理
 - FastAPI 接口：提供 `/health`、`/chat` 和 `/docs`
 
 ## 项目结构
@@ -52,6 +53,24 @@ mvp_agent/customer_agent.sqlite3
 ```powershell
 $env:DATABASE_URL="sqlite:///./mvp_agent/customer_agent.sqlite3"
 ```
+
+## 数据库迁移
+
+创建或升级表结构：
+
+```bash
+alembic upgrade head
+```
+
+如果本地已经存在由 `init_db()` 自动创建的 SQLite 文件，想完整体验迁移流程，可以先删除运行库：
+
+```powershell
+Remove-Item .\mvp_agent\customer_agent.sqlite3
+alembic upgrade head
+python -m mvp_agent.app
+```
+
+说明：`alembic upgrade head` 负责表结构，`python -m mvp_agent.app` 启动时会继续补充 seed 示例数据。
 
 默认服务地址：
 

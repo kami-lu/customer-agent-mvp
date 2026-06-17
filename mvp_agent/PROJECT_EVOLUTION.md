@@ -498,7 +498,64 @@ mvp_agent/models.py
 我最初用 sqlite3 手写 SQL 快速跑通 Agent 闭环；后续为了提升工程可维护性，将数据层升级为 SQLAlchemy ORM，抽象 Product、Order、FAQ、KnowledgeChunk、Conversation、Message 等模型，并通过 DATABASE_URL 支持后续迁移到 MySQL 或 PostgreSQL。
 ```
 
-## 14. 清理项目并脱敏
+## 14. 增加 Alembic 数据库迁移
+
+### 做了什么
+
+新增 Alembic 迁移配置：
+
+```text
+alembic.ini
+migrations/env.py
+migrations/script.py.mako
+migrations/versions/0001_initial_schema.py
+```
+
+初始迁移脚本负责创建：
+
+- `products`
+- `orders`
+- `faqs`
+- `knowledge_chunks`
+- `conversations`
+- `messages`
+
+迁移环境会读取 `DATABASE_URL`，默认使用本地 SQLite，也可以切换到 MySQL/PostgreSQL。
+
+### 为什么这么做
+
+`Base.metadata.create_all()` 适合 MVP 演示，但真实项目需要记录每次表结构变更，否则多人协作和线上升级很难管理。
+
+引入 Alembic 后：
+
+- 表结构变更可以版本化。
+- 每次数据库升级都有 migration 文件。
+- 后续添加用户表、工单表、知识库版本表时，可以通过迁移脚本管理。
+- 更接近真实后端工程流程。
+
+### 怎么运行
+
+```bash
+alembic upgrade head
+```
+
+如果本地已经存在自动建表生成的 SQLite 文件，可以先删除运行库再执行迁移：
+
+```powershell
+Remove-Item .\mvp_agent\customer_agent.sqlite3
+alembic upgrade head
+python -m mvp_agent.app
+```
+
+### 面试怎么讲
+
+可以说：
+
+```text
+在 ORM 层稳定后，我继续接入 Alembic，把表结构从 create_all 的自动建表升级为 migration 版本管理。这样后续新增用户、工单、知识库版本等表时，可以通过迁移脚本可控升级，也为团队协作和线上部署做准备。
+```
+
+## 15. 清理项目并脱敏
 
 ### 做了什么
 
@@ -527,7 +584,7 @@ mvp_agent/models.py
 我整理仓库时把虚拟环境、日志、上传文件、本地 .env 和运行数据库都清理掉，只保留源码、依赖说明和示例配置，保证项目可复现且不泄露敏感信息。
 ```
 
-## 15. 当前项目能演示什么
+## 16. 当前项目能演示什么
 
 ### 推荐演示问题
 
@@ -552,10 +609,11 @@ mvp_agent/models.py
 - 检索来源和相似度分数
 - 模块化代码结构
 - SQLAlchemy ORM 数据层
+- Alembic 数据库迁移
 - 模板/LLM 双模式回复
 - 会话记录保存与历史消息查询
 
-## 16. 当前项目还没有做什么
+## 17. 当前项目还没有做什么
 
 当前 MVP 暂未实现：
 
@@ -565,31 +623,29 @@ mvp_agent/models.py
 - Redis 缓存
 - Neo4j 图谱查询
 - embedding 向量化和向量数据库
-- Alembic 数据库迁移
 - LangGraph 节点编排
 - Docker 部署
 - 公网部署
 
 这些不是缺陷，而是后续迭代方向。
 
-## 17. 后续迭代路线
+## 18. 后续迭代路线
 
 建议按这个顺序继续做：
 
 1. 继续拆分为更细的目录：`api/`、`tools/`、`services/`。
 2. 接入 MySQL 或 PostgreSQL。
-3. 增加 Alembic 数据库迁移。
-4. 增加登录注册。
-5. 将轻量 RAG 替换为 embedding + 向量数据库。
-6. 引入 LangGraph 编排 Agent 节点。
-7. 使用 Docker Compose 部署。
+3. 增加登录注册。
+4. 将轻量 RAG 替换为 embedding + 向量数据库。
+5. 引入 LangGraph 编排 Agent 节点。
+6. 使用 Docker Compose 部署。
 
-## 18. 简历表述建议
+## 19. 简历表述建议
 
 可以写：
 
 ```text
-实现智能家居电商客服 Agent MVP，基于 FastAPI + SQLAlchemy + SQLite 构建可运行的客服问答闭环，并通过 DATABASE_URL 预留 MySQL/PostgreSQL 迁移能力；按 FastAPI 路由、Agent 编排、数据库层和 Web 页面进行模块化拆分；设计结构化 Router，输出 intent、tool_name、slots 和路由来源，支持商品咨询、订单物流、售后 FAQ 与知识库问答；封装商品查询、订单查询、售后查询和轻量 RAG 检索工具，基于工具结果生成客服回复并保存会话记录；新增会话列表和历史消息查询接口，提供 Web 聊天页面与 Swagger 接口文档；支持无 API Key 的规则兜底和 DeepSeek API 结构化路由/回复增强。
+实现智能家居电商客服 Agent MVP，基于 FastAPI + SQLAlchemy + SQLite 构建可运行的客服问答闭环，并通过 DATABASE_URL 预留 MySQL/PostgreSQL 迁移能力；接入 Alembic 管理数据库 schema 版本；按 FastAPI 路由、Agent 编排、数据库层和 Web 页面进行模块化拆分；设计结构化 Router，输出 intent、tool_name、slots 和路由来源，支持商品咨询、订单物流、售后 FAQ 与知识库问答；封装商品查询、订单查询、售后查询和轻量 RAG 检索工具，基于工具结果生成客服回复并保存会话记录；新增会话列表和历史消息查询接口，提供 Web 聊天页面与 Swagger 接口文档；支持无 API Key 的规则兜底和 DeepSeek API 结构化路由/回复增强。
 ```
 
 不要写：

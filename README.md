@@ -11,6 +11,7 @@
 - 轻量 RAG：基于本地知识库 chunk 的 TF-IDF 相似度检索
 - SQLite 会话管理与历史消息保存
 - SQLAlchemy ORM 数据层，默认 SQLite，可通过 `DATABASE_URL` 切换数据库
+- Alembic 数据库迁移，支持表结构版本化管理
 - DeepSeek API 可选接入
 - LLM 调用失败时自动回退到规则路由和模板回复
 
@@ -26,6 +27,9 @@ mvp_agent/
   README.md              # 详细运行说明
   PROJECT_EVOLUTION.md   # 项目演进和面试讲法
   requirements.txt       # MVP 最小依赖
+migrations/
+  env.py                 # Alembic 迁移环境
+  versions/              # 数据库迁移脚本
 ```
 
 ## 快速启动
@@ -39,6 +43,20 @@ python -m mvp_agent.app
 
 ```powershell
 $env:DATABASE_URL="sqlite:///./mvp_agent/customer_agent.sqlite3"
+```
+
+数据库迁移：
+
+```bash
+alembic upgrade head
+```
+
+如果你已经用自动建表生成过本地 SQLite，迁移前可先删除本地运行库：
+
+```powershell
+Remove-Item .\mvp_agent\customer_agent.sqlite3
+alembic upgrade head
+python -m mvp_agent.app
 ```
 
 访问：
