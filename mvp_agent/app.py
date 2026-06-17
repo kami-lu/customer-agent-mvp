@@ -14,7 +14,7 @@ except ModuleNotFoundError as exc:
 
 from .agent import run_agent
 from .auth import authenticate_user, create_token, create_user, get_user_by_token
-from .db import get_messages, init_db, list_conversations
+from .db import create_ticket, get_messages, init_db, list_conversations, list_tickets, update_ticket_status
 from .models import User
 from .web import CHAT_HTML
 
@@ -27,6 +27,16 @@ class ChatRequest(BaseModel):
 class AuthRequest(BaseModel):
     username: str
     password: str
+
+
+class TicketCreateRequest(BaseModel):
+    description: str
+    conversation_id: str | None = None
+    title: str | None = None
+
+
+class TicketStatusRequest(BaseModel):
+    status: str
 
 
 def user_payload(user: User) -> dict[str, Any]:
@@ -134,6 +144,50 @@ def conversation_messages(conversation_id: str, authorization: str | None = Head
         "conversation_id": conversation_id,
         "messages": get_messages(conversation_id, user.id if user else None),
     }
+
+
+@app.post("/tickets")
+def create_support_ticket(
+    request: TicketCreateRequest,
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
+    user = current_user(authorization, required=True)
+    assert user is not None
+    description = request.description.strip()
+    if len(description) < 5:
+        raise HTTPException(status_code=400, detail="description must be at least 5 characters")
+    conversation_id = request.conversation_id.strip() if request.conversation_id else None
+    title = request.title.strip() if request.title else None
+    try:
+        ticket = create_ticket(user.id, description, conversation_id, title)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {"ticket": ticket}
+
+
+@app.get("/tickets")
+def support_tickets(limit: int = 20, authorization: str | None = Header(default=None)) -> dict[str, list[dict[str, Any]]]:
+    user = current_user(authorization, required=True)
+    assert user is not None
+    limit = max(1, min(limit, 100))
+    return {"tickets": list_tickets(user.id, limit)}
+
+
+@app.patch("/tickets/{ticket_id}/status")
+def change_ticket_status(
+    ticket_id: int,
+    request: TicketStatusRequest,
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
+    user = current_user(authorization, required=True)
+    assert user is not None
+    try:
+        ticket = update_ticket_status(user.id, ticket_id, request.status.strip())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not ticket:
+        raise HTTPException(status_code=404, detail="ticket not found")
+    return {"ticket": ticket}
 
 
 @app.get("/health")

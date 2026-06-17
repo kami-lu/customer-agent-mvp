@@ -58,6 +58,7 @@ class User(Base):
         cascade="all, delete-orphan",
     )
     conversations: Mapped[list["Conversation"]] = relationship(back_populates="user")
+    tickets: Mapped[list["Ticket"]] = relationship(back_populates="user")
 
 
 class AuthToken(Base):
@@ -100,3 +101,22 @@ class Message(Base):
     created_at: Mapped[int] = mapped_column(Integer, nullable=False)
 
     conversation: Mapped[Conversation] = relationship(back_populates="messages")
+
+
+class Ticket(Base):
+    __tablename__ = "tickets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    conversation_id: Mapped[str | None] = mapped_column(
+        ForeignKey("conversations.conversation_id"),
+        nullable=True,
+        index=True,
+    )
+    title: Mapped[str] = mapped_column(String(120), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="open")
+    created_at: Mapped[int] = mapped_column(Integer, nullable=False)
+    updated_at: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    user: Mapped[User] = relationship(back_populates="tickets")

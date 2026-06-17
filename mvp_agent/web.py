@@ -124,6 +124,50 @@ CHAT_HTML = """<!doctype html>
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .ticket-tools {
+      margin-top: 16px;
+      border-top: 1px solid #e1e7f0;
+      padding-top: 12px;
+    }
+    #create-ticket {
+      width: 100%;
+      min-height: 34px;
+      margin-bottom: 10px;
+      background: #0f766e;
+      font-size: 13px;
+    }
+    .ticket {
+      margin-bottom: 8px;
+      padding: 9px 10px;
+      background: #f7f9fc;
+      border: 1px solid #e1e7f0;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+    .ticket strong {
+      display: block;
+      color: #223047;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ticket small {
+      display: block;
+      color: #68758a;
+      margin: 4px 0 7px;
+    }
+    .ticket-actions {
+      display: flex;
+      gap: 6px;
+    }
+    .ticket-actions button {
+      flex: 1;
+      min-height: 28px;
+      padding: 0 6px;
+      font-size: 12px;
+      background: #e8edf5;
+      color: #223047;
+    }
     #messages {
       background: white;
       border: 1px solid #dfe5ef;
@@ -230,6 +274,13 @@ CHAT_HTML = """<!doctype html>
         <button id="new-chat" type="button">新会话</button>
       </div>
       <div id="conversation-list"></div>
+      <div class="ticket-tools">
+        <div class="sidebar-title">
+          <span>售后工单</span>
+        </div>
+        <button id="create-ticket" type="button">创建当前会话工单</button>
+        <div id="ticket-list"></div>
+      </div>
     </aside>
     <section id="messages">
       <div class="msg bot">亲，我是智能家居客服助手，可以帮您查询商品、订单、物流和售后问题。</div>
@@ -259,7 +310,9 @@ CHAT_HTML = """<!doctype html>
     const authUser = document.querySelector("#auth-user");
     const messages = document.querySelector("#messages");
     const conversationList = document.querySelector("#conversation-list");
+    const ticketList = document.querySelector("#ticket-list");
     const newChat = document.querySelector("#new-chat");
+    const createTicketButton = document.querySelector("#create-ticket");
     let currentConversationId = `web-${Date.now()}`;
     let authToken = localStorage.getItem("customer_agent_token") || "";
 
@@ -298,6 +351,7 @@ CHAT_HTML = """<!doctype html>
       currentConversationId = `web-${Date.now()}`;
       resetMessages();
       await loadConversations();
+      await loadTickets();
     }
 
     async function restoreLogin() {
@@ -356,6 +410,71 @@ CHAT_HTML = """<!doctype html>
       });
     }
 
+    function ticketStatusText(status) {
+      return {
+        open: "待处理",
+        processing: "处理中",
+        resolved: "已解决",
+        closed: "已关闭"
+      }[status] || status;
+    }
+
+    async function loadTickets() {
+      ticketList.innerHTML = "";
+      if (!authToken) {
+        ticketList.innerHTML = '<div class="ticket"><small>登录后可创建和查看工单</small></div>';
+        return;
+      }
+      const resp = await fetch("/tickets", {headers: authHeaders()});
+      const data = await resp.json();
+      if (!resp.ok) {
+        ticketList.innerHTML = '<div class="ticket"><small>工单加载失败</small></div>';
+        return;
+      }
+      if (data.tickets.length === 0) {
+        ticketList.innerHTML = '<div class="ticket"><small>暂无工单</small></div>';
+        return;
+      }
+      data.tickets.forEach((ticket) => {
+        const item = document.createElement("div");
+        item.className = "ticket";
+        const title = document.createElement("strong");
+        title.textContent = `#${ticket.id} ${ticket.title}`;
+        const meta = document.createElement("small");
+        meta.textContent = `${ticketStatusText(ticket.status)} | ${ticket.description}`;
+        const actions = document.createElement("div");
+        actions.className = "ticket-actions";
+        const processing = document.createElement("button");
+        processing.type = "button";
+        processing.textContent = "处理中";
+        processing.addEventListener("click", () => updateTicketStatus(ticket.id, "processing"));
+        const resolved = document.createElement("button");
+        resolved.type = "button";
+        resolved.textContent = "已解决";
+        resolved.addEventListener("click", () => updateTicketStatus(ticket.id, "resolved"));
+        actions.appendChild(processing);
+        actions.appendChild(resolved);
+        item.appendChild(title);
+        item.appendChild(meta);
+        item.appendChild(actions);
+        ticketList.appendChild(item);
+      });
+    }
+
+    async function updateTicketStatus(ticketId, status) {
+      const resp = await fetch(`/tickets/${ticketId}/status`, {
+        method: "PATCH",
+        headers: authHeaders({"Content-Type": "application/json; charset=utf-8"}),
+        body: JSON.stringify({status})
+      });
+      if (!resp.ok) {
+        const data = await resp.json();
+        addMessage(`工单状态更新失败：${data.detail || "未知错误"}`, "bot");
+        return;
+      }
+      await loadTickets();
+    }
+
     async function loadMessages(conversationId) {
       currentConversationId = conversationId;
       const resp = await fetch(`/conversations/${encodeURIComponent(conversationId)}/messages`, {headers: authHeaders()});
@@ -390,6 +509,7 @@ CHAT_HTML = """<!doctype html>
           `intent: ${data.intent || "-"} | tool: ${data.tool_name || "-"} | source: ${data.route_source || "-"} | ${data.route_reason || ""}${routeError}`
         );
         await loadConversations();
+        await loadTickets();
       } catch (error) {
         addMessage(`请求失败：${error.message}`, "bot");
       } finally {
@@ -412,6 +532,7 @@ CHAT_HTML = """<!doctype html>
       currentConversationId = `web-${Date.now()}`;
       resetMessages();
       await loadConversations();
+      await loadTickets();
       input.focus();
     });
 
@@ -438,9 +559,33 @@ CHAT_HTML = """<!doctype html>
       currentConversationId = `web-${Date.now()}`;
       resetMessages();
       await loadConversations();
+      await loadTickets();
     });
 
-    restoreLogin().then(loadConversations);
+    createTicketButton.addEventListener("click", async () => {
+      if (!authToken) {
+        addMessage("请先登录，再创建售后工单。", "bot");
+        return;
+      }
+      const description = input.value.trim() || "用户需要人工客服继续处理当前会话中的售后问题";
+      const resp = await fetch("/tickets", {
+        method: "POST",
+        headers: authHeaders({"Content-Type": "application/json; charset=utf-8"}),
+        body: JSON.stringify({description, conversation_id: currentConversationId})
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        addMessage(`创建工单失败：${data.detail || "未知错误"}`, "bot");
+        return;
+      }
+      addMessage(`已创建售后工单 #${data.ticket.id}，状态：${ticketStatusText(data.ticket.status)}。`, "bot");
+      await loadTickets();
+    });
+
+    restoreLogin().then(() => {
+      loadConversations();
+      loadTickets();
+    });
   </script>
 </body>
 </html>

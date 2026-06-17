@@ -9,7 +9,7 @@ from typing import Any, Iterator
 from sqlalchemy import create_engine, func, inspect, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
-from .models import Base, Conversation, FAQ, KnowledgeChunk, Message, Order, Product
+from .models import Base, Conversation, FAQ, KnowledgeChunk, Message, Order, Product, Ticket
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -48,14 +48,100 @@ def ensure_sqlite_runtime_schema() -> None:
     if not DATABASE_URL.startswith("sqlite"):
         return
     inspector = inspect(engine)
-    if "conversations" not in inspector.get_table_names():
+    tables = inspector.get_table_names()
+    if "conversations" not in tables:
         return
     columns = {column["name"] for column in inspector.get_columns("conversations")}
-    if "user_id" in columns:
-        return
-    with engine.begin() as connection:
-        connection.execute(text("ALTER TABLE conversations ADD COLUMN user_id INTEGER"))
-        connection.execute(text("CREATE INDEX IF NOT EXISTS ix_conversations_user_id ON conversations (user_id)"))
+    if "user_id" not in columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE conversations ADD COLUMN user_id INTEGER"))
+            connection.execute(text("CREATE INDEX IF NOT EXISTS ix_conversations_user_id ON conversations (user_id)"))
+    if "tickets" not in tables:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    CREATE TABLE tickets (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        user_id INTEGER NOT NULL,
+                        conversation_id VARCHAR(80),
+                        title VARCHAR(120) NOT NULL,
+                        description TEXT NOT NULL,
+                        status VARCHAR(32) NOT NULL,
+                        created_at INTEGER NOT NULL,
+                        updated_at INTEGER NOT NULL,
+                        FOREIGN KEY(user_id) REFERENCES users (id),
+                        FOREIGN KEY(conversation_id) REFERENCES conversations (conversation_id)
+                    )
+                    """
+                )
+            )
+            connection.execute(text("CREATE INDEX IF NOT EXISTS ix_tickets_user_id ON tickets (user_id)"))
+            connection.execute(text("CREATE INDEX IF NOT EXISTS ix_tickets_conversation_id ON tickets (conversation_id)"))
+
+
+def make_ticket_title(description: str) -> str:
+    title = description.strip().replace("\n", " ")
+    return title[:32] or "售后工单"
+
+
+def create_ticket(user_id: int, description: str, conversation_id: str | None = None, title: str | None = None) -> dict[str, Any]:
+    now = int(time.time())
+    with get_session() as session:
+        if conversation_id:
+            conversation = session.get(Conversation, conversation_id)
+            if not conversation or conversation.user_id != user_id:
+                raise ValueError("conversation not found")
+        ticket = Ticket(
+            user_id=user_id,
+            conversation_id=conversation_id,
+            title=title or make_ticket_title(description),
+            description=description,
+            status="open",
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(ticket)
+        session.flush()
+        result = model_to_dict(
+            ticket,
+            ["id", "user_id", "conversation_id", "title", "description", "status", "created_at", "updated_at"],
+        )
+        return result
+
+
+def list_tickets(user_id: int, limit: int = 20) -> list[dict[str, Any]]:
+    with get_session() as session:
+        tickets = session.scalars(
+            select(Ticket)
+            .where(Ticket.user_id == user_id)
+            .order_by(Ticket.updated_at.desc())
+            .limit(limit)
+        ).all()
+        return [
+            model_to_dict(
+                ticket,
+                ["id", "user_id", "conversation_id", "title", "description", "status", "created_at", "updated_at"],
+            )
+            for ticket in tickets
+        ]
+
+
+def update_ticket_status(user_id: int, ticket_id: int, status: str) -> dict[str, Any] | None:
+    allowed_statuses = {"open", "processing", "resolved", "closed"}
+    if status not in allowed_statuses:
+        raise ValueError("invalid ticket status")
+    with get_session() as session:
+        ticket = session.get(Ticket, ticket_id)
+        if not ticket or ticket.user_id != user_id:
+            return None
+        ticket.status = status
+        ticket.updated_at = int(time.time())
+        session.flush()
+        return model_to_dict(
+            ticket,
+            ["id", "user_id", "conversation_id", "title", "description", "status", "created_at", "updated_at"],
+        )
 
 
 def seed_products_orders_faqs(session: Session) -> None:

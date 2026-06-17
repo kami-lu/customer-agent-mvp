@@ -11,6 +11,7 @@
 - 轻量 RAG：基于本地知识库 chunk 的 TF-IDF 相似度检索
 - SQLite 会话管理与历史消息保存
 - 用户注册/登录与按用户隔离的会话历史
+- 售后工单：支持创建工单、查看工单和状态流转
 - SQLAlchemy ORM 数据层，默认 SQLite，可通过 `DATABASE_URL` 切换数据库
 - Alembic 数据库迁移，支持表结构版本化管理
 - DeepSeek API 可选接入
@@ -95,6 +96,18 @@ POST /auth/login
 GET /me
 ```
 
+## 售后工单
+
+登录用户可以把当前会话沉淀为售后工单，工单会关联当前用户和会话，支持后续状态流转。
+
+可用接口：
+
+```text
+POST /tickets
+GET /tickets
+PATCH /tickets/{ticket_id}/status
+```
+
 ## DeepSeek 接入
 
 不设置 API Key 时，系统会使用规则路由和模板回复。设置环境变量后，会使用 DeepSeek 做结构化路由和回复生成。
@@ -116,6 +129,7 @@ python -m mvp_agent.app
 
 - MySQL/PostgreSQL
 - Redis 缓存
+- 人工客服后台
 - embedding + 向量数据库
 - LangGraph 多节点编排
 - Docker Compose 部署

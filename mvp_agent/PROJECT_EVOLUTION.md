@@ -641,13 +641,41 @@ python -m mvp_agent.app
 我在会话系统上继续补了用户认证能力：用户注册时使用 PBKDF2 对密码做加盐哈希，登录后生成服务端 Token，前端通过 Authorization Bearer Token 调用接口。后端根据 Token 解析 user_id，并在查询会话和消息时按 user_id 过滤，保证不同用户只能看到自己的历史记录。这个改动让 MVP 从单用户演示升级为更接近真实客服系统的多用户会话模型。
 ```
 
-## 18. 当前项目还没有做什么
+## 18. 增加售后工单和人工接管入口
+
+### 做了什么
+
+新增了工单闭环：
+
+- `Ticket` 工单表
+- `/tickets` 创建工单接口
+- `/tickets` 工单列表接口
+- `/tickets/{ticket_id}/status` 状态更新接口
+- 工单关联 `user_id` 和 `conversation_id`
+- Web 页面支持创建当前会话工单
+- Web 页面支持查看自己的工单列表
+- 工单状态支持 `open`、`processing`、`resolved`、`closed`
+
+### 为什么这么做
+
+只做问答的客服 Agent 仍然偏 Demo。真实客服系统里，很多售后问题需要人工处理、跨天跟进或状态流转，所以需要把一次对话沉淀成可追踪的工单。这个改动让系统从“能回答问题”进一步变成“能承接业务流程”。
+
+### 面试怎么讲
+
+可以说：
+
+```text
+在登录和会话隔离之后，我继续补了售后工单闭环。用户登录后可以基于当前会话创建工单，工单表关联 user_id 和 conversation_id，后续可以查看自己的工单并进行 open、processing、resolved、closed 的状态流转。这样 Agent 无法直接解决或需要人工跟进的问题可以沉淀为业务对象，为后续人工客服接管、后台处理和消息通知做准备。
+```
+
+## 19. 当前项目还没有做什么
 
 当前 MVP 暂未实现：
 
 - 多轮上下文理解
 - MySQL/PostgreSQL
 - Redis 缓存
+- 完整人工客服后台
 - Neo4j 图谱查询
 - embedding 向量化和向量数据库
 - LangGraph 节点编排
@@ -656,23 +684,23 @@ python -m mvp_agent.app
 
 这些不是缺陷，而是后续迭代方向。
 
-## 19. 后续迭代路线
+## 20. 后续迭代路线
 
 建议按这个顺序继续做：
 
 1. 继续拆分为更细的目录：`api/`、`tools/`、`services/`。
 2. 接入 MySQL 或 PostgreSQL。
-3. 增加工单表和人工客服接管。
+3. 增加人工客服后台和工单分配。
 4. 将轻量 RAG 替换为 embedding + 向量数据库。
 5. 引入 LangGraph 编排 Agent 节点。
 6. 使用 Docker Compose 部署。
 
-## 20. 简历表述建议
+## 21. 简历表述建议
 
 可以写：
 
 ```text
-实现智能家居电商客服 Agent MVP，基于 FastAPI + SQLAlchemy + SQLite 构建可运行的客服问答闭环，并通过 DATABASE_URL 预留 MySQL/PostgreSQL 迁移能力；接入 Alembic 管理数据库 schema 版本；按 FastAPI 路由、Agent 编排、认证、数据库层和 Web 页面进行模块化拆分；设计结构化 Router，输出 intent、tool_name、slots 和路由来源，支持商品咨询、订单物流、售后 FAQ 与知识库问答；封装商品查询、订单查询、售后查询和轻量 RAG 检索工具，基于工具结果生成客服回复并保存会话记录；实现用户注册登录、Token 认证和按用户隔离的会话历史；提供 Web 聊天页面与 Swagger 接口文档；支持无 API Key 的规则兜底和 DeepSeek API 结构化路由/回复增强。
+实现智能家居电商客服 Agent MVP，基于 FastAPI + SQLAlchemy + SQLite 构建可运行的客服问答闭环，并通过 DATABASE_URL 预留 MySQL/PostgreSQL 迁移能力；接入 Alembic 管理数据库 schema 版本；按 FastAPI 路由、Agent 编排、认证、数据库层和 Web 页面进行模块化拆分；设计结构化 Router，输出 intent、tool_name、slots 和路由来源，支持商品咨询、订单物流、售后 FAQ 与知识库问答；封装商品查询、订单查询、售后查询和轻量 RAG 检索工具，基于工具结果生成客服回复并保存会话记录；实现用户注册登录、Token 认证和按用户隔离的会话历史；新增售后工单闭环，支持用户基于会话创建工单、查看工单和状态流转；提供 Web 聊天页面与 Swagger 接口文档；支持无 API Key 的规则兜底和 DeepSeek API 结构化路由/回复增强。
 ```
 
 不要写：

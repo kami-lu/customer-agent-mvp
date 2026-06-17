@@ -12,6 +12,7 @@
 - 会话存储：把用户问题和助手回复写入 SQLite
 - 会话管理：支持会话列表和历史消息查询
 - 用户系统：支持注册、登录、Token 认证和按用户隔离会话历史
+- 售后工单：支持创建工单、查看自己的工单和状态流转
 - SQLAlchemy ORM 数据层：默认 SQLite，可通过 `DATABASE_URL` 切换数据库
 - Alembic 数据库迁移：支持表结构版本化管理
 - FastAPI 接口：提供 `/health`、`/chat` 和 `/docs`
@@ -24,7 +25,7 @@ mvp_agent/
   agent.py            # Router、工具调用、RAG 检索、DeepSeek 调用
   auth.py             # 密码哈希、Token 生成和用户认证
   db.py               # SQLite 建表、seed 数据、会话和消息读写
-  models.py           # User、AuthToken、Product、Order、FAQ、KnowledgeChunk、Conversation、Message ORM 模型
+  models.py           # User、AuthToken、Product、Order、FAQ、KnowledgeChunk、Conversation、Message、Ticket ORM 模型
   web.py              # 浏览器聊天页面
   README.md           # 运行说明
   .env.example        # 可选的大模型配置示例
@@ -108,6 +109,23 @@ GET /me
 ```
 
 登录后前端会把 Token 保存在浏览器 `localStorage`，请求聊天和历史记录接口时通过 `Authorization: Bearer <token>` 传给后端。后端按 `user_id` 过滤会话，避免不同用户看到彼此的聊天历史。
+
+工单接口：
+
+```text
+POST /tickets
+GET /tickets
+PATCH /tickets/{ticket_id}/status
+```
+
+工单状态包括：
+
+```text
+open
+processing
+resolved
+closed
+```
 
 ## 测试
 
