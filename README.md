@@ -10,6 +10,7 @@
 - 商品查询、订单物流查询、售后 FAQ 查询工具
 - 轻量 RAG：基于本地知识库 chunk 的 TF-IDF 相似度检索
 - SQLite 会话管理与历史消息保存
+- SQLAlchemy ORM 数据层，默认 SQLite，可通过 `DATABASE_URL` 切换数据库
 - DeepSeek API 可选接入
 - LLM 调用失败时自动回退到规则路由和模板回复
 
@@ -20,6 +21,7 @@ mvp_agent/
   app.py                 # FastAPI 路由和服务入口
   agent.py               # Router、工具调用、RAG 检索、DeepSeek 调用
   db.py                  # SQLite 建表、seed 数据、会话和消息读写
+  models.py              # SQLAlchemy ORM 模型
   web.py                 # 浏览器聊天页面
   README.md              # 详细运行说明
   PROJECT_EVOLUTION.md   # 项目演进和面试讲法
@@ -31,6 +33,12 @@ mvp_agent/
 ```bash
 pip install -r mvp_agent/requirements.txt
 python -m mvp_agent.app
+```
+
+默认使用本地 SQLite。也可以通过 `DATABASE_URL` 切换数据库，例如：
+
+```powershell
+$env:DATABASE_URL="sqlite:///./mvp_agent/customer_agent.sqlite3"
 ```
 
 访问：
@@ -80,4 +88,3 @@ python -m mvp_agent.app
 - embedding + 向量数据库
 - LangGraph 多节点编排
 - Docker Compose 部署
-

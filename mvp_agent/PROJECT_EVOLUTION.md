@@ -447,7 +447,58 @@ mvp_agent/
 我前期为了快速验证闭环，把逻辑集中在单文件里；当功能扩展到会话管理、结构化路由和 RAG 后，我做了模块化拆分，把 FastAPI 路由、Agent 逻辑、数据库层和页面层分开，提高可维护性。
 ```
 
-## 13. 清理项目并脱敏
+## 13. 数据库层升级为 SQLAlchemy ORM
+
+### 做了什么
+
+将原来的 `sqlite3` 手写 SQL 数据层升级为 SQLAlchemy ORM。
+
+新增：
+
+```text
+mvp_agent/models.py
+```
+
+抽象出这些模型：
+
+- `Product`
+- `Order`
+- `FAQ`
+- `KnowledgeChunk`
+- `Conversation`
+- `Message`
+
+`db.py` 现在负责：
+
+- 创建 `engine`
+- 创建 `SessionLocal`
+- 初始化表结构
+- seed 示例数据
+- 会话和消息读写
+
+默认仍然使用本地 SQLite，同时支持通过 `DATABASE_URL` 切换数据库。
+
+### 为什么这么做
+
+最初使用 `sqlite3` 是为了快速验证 MVP 闭环，但随着功能增加，手写 SQL 的维护成本会升高。
+
+升级 ORM 后的好处：
+
+- 表结构由模型表达，更清晰。
+- 查询逻辑更接近真实后端工程。
+- 后续增加用户、工单、知识库版本等表更方便。
+- 可以通过 `DATABASE_URL` 平滑迁移到 MySQL/PostgreSQL。
+- 为后续接 Alembic 数据库迁移做准备。
+
+### 面试怎么讲
+
+可以说：
+
+```text
+我最初用 sqlite3 手写 SQL 快速跑通 Agent 闭环；后续为了提升工程可维护性，将数据层升级为 SQLAlchemy ORM，抽象 Product、Order、FAQ、KnowledgeChunk、Conversation、Message 等模型，并通过 DATABASE_URL 支持后续迁移到 MySQL 或 PostgreSQL。
+```
+
+## 14. 清理项目并脱敏
 
 ### 做了什么
 
@@ -476,7 +527,7 @@ mvp_agent/
 我整理仓库时把虚拟环境、日志、上传文件、本地 .env 和运行数据库都清理掉，只保留源码、依赖说明和示例配置，保证项目可复现且不泄露敏感信息。
 ```
 
-## 14. 当前项目能演示什么
+## 15. 当前项目能演示什么
 
 ### 推荐演示问题
 
@@ -500,10 +551,11 @@ mvp_agent/
 - 轻量 RAG 知识库检索
 - 检索来源和相似度分数
 - 模块化代码结构
+- SQLAlchemy ORM 数据层
 - 模板/LLM 双模式回复
 - 会话记录保存与历史消息查询
 
-## 15. 当前项目还没有做什么
+## 16. 当前项目还没有做什么
 
 当前 MVP 暂未实现：
 
@@ -513,29 +565,31 @@ mvp_agent/
 - Redis 缓存
 - Neo4j 图谱查询
 - embedding 向量化和向量数据库
+- Alembic 数据库迁移
 - LangGraph 节点编排
 - Docker 部署
 - 公网部署
 
 这些不是缺陷，而是后续迭代方向。
 
-## 16. 后续迭代路线
+## 17. 后续迭代路线
 
 建议按这个顺序继续做：
 
 1. 继续拆分为更细的目录：`api/`、`tools/`、`services/`。
 2. 接入 MySQL 或 PostgreSQL。
-3. 增加登录注册。
-4. 将轻量 RAG 替换为 embedding + 向量数据库。
-5. 引入 LangGraph 编排 Agent 节点。
-6. 使用 Docker Compose 部署。
+3. 增加 Alembic 数据库迁移。
+4. 增加登录注册。
+5. 将轻量 RAG 替换为 embedding + 向量数据库。
+6. 引入 LangGraph 编排 Agent 节点。
+7. 使用 Docker Compose 部署。
 
-## 17. 简历表述建议
+## 18. 简历表述建议
 
 可以写：
 
 ```text
-实现智能家居电商客服 Agent MVP，基于 FastAPI + SQLite 构建可运行的客服问答闭环；按 FastAPI 路由、Agent 编排、数据库层和 Web 页面进行模块化拆分；设计结构化 Router，输出 intent、tool_name、slots 和路由来源，支持商品咨询、订单物流、售后 FAQ 与知识库问答；封装商品查询、订单查询、售后查询和轻量 RAG 检索工具，基于工具结果生成客服回复并保存会话记录；新增会话列表和历史消息查询接口，提供 Web 聊天页面与 Swagger 接口文档；支持无 API Key 的规则兜底和 DeepSeek API 结构化路由/回复增强。
+实现智能家居电商客服 Agent MVP，基于 FastAPI + SQLAlchemy + SQLite 构建可运行的客服问答闭环，并通过 DATABASE_URL 预留 MySQL/PostgreSQL 迁移能力；按 FastAPI 路由、Agent 编排、数据库层和 Web 页面进行模块化拆分；设计结构化 Router，输出 intent、tool_name、slots 和路由来源，支持商品咨询、订单物流、售后 FAQ 与知识库问答；封装商品查询、订单查询、售后查询和轻量 RAG 检索工具，基于工具结果生成客服回复并保存会话记录；新增会话列表和历史消息查询接口，提供 Web 聊天页面与 Swagger 接口文档；支持无 API Key 的规则兜底和 DeepSeek API 结构化路由/回复增强。
 ```
 
 不要写：

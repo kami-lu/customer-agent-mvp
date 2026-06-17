@@ -9,8 +9,10 @@ from dataclasses import dataclass
 from typing import Any
 
 import requests
+from sqlalchemy import case, or_, select
 
-from .db import get_conn, make_conversation_title, save_message, upsert_conversation
+from .db import get_session, make_conversation_title, model_to_dict, save_message, upsert_conversation
+from .models import FAQ, KnowledgeChunk, Order, Product
 
 
 @dataclass
@@ -217,9 +219,9 @@ def cosine_similarity(query_tokens: list[str], doc_tokens: list[str], doc_count:
 
 
 def search_knowledge(query: str, limit: int = 3) -> list[dict[str, Any]]:
-    with get_conn() as conn:
-        rows = conn.execute("SELECT id, title, content, source FROM knowledge_chunks").fetchall()
-    documents = [dict(row) for row in rows]
+    with get_session() as session:
+        chunks = session.scalars(select(KnowledgeChunk)).all()
+        documents = [model_to_dict(chunk, ["id", "title", "content", "source"]) for chunk in chunks]
     tokenized_docs = [tokenize(f"{doc['title']} {doc['content']}") for doc in documents]
     doc_freq: Counter[str] = Counter()
     for tokens in tokenized_docs:
@@ -236,54 +238,56 @@ def search_knowledge(query: str, limit: int = 3) -> list[dict[str, Any]]:
 
 def search_products(query: str, keywords: list[str] | None = None) -> list[dict[str, Any]]:
     keywords = keywords or product_keywords(query)
-    with get_conn() as conn:
-        rows: list[sqlite3.Row] = []
+    with get_session() as session:
+        products: list[Product] = []
         for keyword in keywords:
-            rows = conn.execute(
-                """
-                SELECT name, category, price, stock, description
-                FROM products
-                WHERE name LIKE ? OR category LIKE ? OR description LIKE ?
-                ORDER BY
-                    CASE
-                        WHEN name LIKE ? THEN 1
-                        WHEN category LIKE ? THEN 2
-                        ELSE 3
-                    END,
-                    stock DESC
-                LIMIT 3
-                """,
-                (f"%{keyword}%", f"%{keyword}%", f"%{keyword}%", f"%{keyword}%", f"%{keyword}%"),
-            ).fetchall()
-            if rows:
+            pattern = f"%{keyword}%"
+            products = session.scalars(
+                select(Product)
+                .where(
+                    or_(
+                        Product.name.like(pattern),
+                        Product.category.like(pattern),
+                        Product.description.like(pattern),
+                    )
+                )
+                .order_by(
+                    case(
+                        (Product.name.like(pattern), 1),
+                        (Product.category.like(pattern), 2),
+                        else_=3,
+                    ),
+                    Product.stock.desc(),
+                )
+                .limit(3)
+            ).all()
+            if products:
                 break
-        if not rows:
-            rows = conn.execute(
-                "SELECT name, category, price, stock, description FROM products ORDER BY stock DESC LIMIT 3"
-            ).fetchall()
-        return [dict(row) for row in rows]
+        if not products:
+            products = session.scalars(select(Product).order_by(Product.stock.desc()).limit(3)).all()
+        return [model_to_dict(product, ["name", "category", "price", "stock", "description"]) for product in products]
 
 
 def search_order(query: str, order_id: str = "") -> dict[str, Any] | None:
     order_id = order_id or extract_order_id(query)
-    with get_conn() as conn:
+    with get_session() as session:
         if order_id:
-            row = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+            order = session.get(Order, order_id)
         else:
-            row = conn.execute("SELECT * FROM orders ORDER BY id DESC LIMIT 1").fetchone()
-        return dict(row) if row else None
+            order = session.scalars(select(Order).order_by(Order.id.desc()).limit(1)).first()
+        return model_to_dict(order, ["id", "status", "logistics", "after_sales"]) if order else None
 
 
 def search_faq(query: str, keyword: str = "") -> str:
-    with get_conn() as conn:
-        rows = conn.execute("SELECT keyword, answer FROM faqs").fetchall()
+    with get_session() as session:
+        faqs = session.scalars(select(FAQ)).all()
     if keyword:
-        for row in rows:
-            if row["keyword"] == keyword or row["keyword"] in keyword:
-                return row["answer"]
-    for row in rows:
-        if row["keyword"] in query:
-            return row["answer"]
+        for faq in faqs:
+            if faq.keyword == keyword or faq.keyword in keyword:
+                return faq.answer
+    for faq in faqs:
+        if faq.keyword in query:
+            return faq.answer
     return "售后问题我可以帮您先登记，建议提供订单号、商品名称和问题现象。"
 
 

@@ -11,6 +11,7 @@
 - 回复生成：没有 API Key 时使用规则模板，有 `DEEPSEEK_API_KEY` 时调用 DeepSeek 生成客服回复
 - 会话存储：把用户问题和助手回复写入 SQLite
 - 会话管理：支持会话列表和历史消息查询
+- SQLAlchemy ORM 数据层：默认 SQLite，可通过 `DATABASE_URL` 切换数据库
 - FastAPI 接口：提供 `/health`、`/chat` 和 `/docs`
 
 ## 项目结构
@@ -20,6 +21,7 @@ mvp_agent/
   app.py              # FastAPI 路由和服务入口
   agent.py            # Router、工具调用、RAG 检索、DeepSeek 调用
   db.py               # SQLite 建表、seed 数据、会话和消息读写
+  models.py           # Product、Order、FAQ、KnowledgeChunk、Conversation、Message ORM 模型
   web.py              # 浏览器聊天页面
   README.md           # 运行说明
   .env.example        # 可选的大模型配置示例
@@ -37,6 +39,18 @@ pip install -r mvp_agent/requirements.txt
 
 ```bash
 python -m mvp_agent.app
+```
+
+默认数据库是本地 SQLite：
+
+```text
+mvp_agent/customer_agent.sqlite3
+```
+
+也可以用环境变量指定其他数据库 URL：
+
+```powershell
+$env:DATABASE_URL="sqlite:///./mvp_agent/customer_agent.sqlite3"
 ```
 
 默认服务地址：
