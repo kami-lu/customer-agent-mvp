@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator
 
-from sqlalchemy import create_engine, func, select
+from sqlalchemy import create_engine, func, inspect, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from .models import Base, Conversation, FAQ, KnowledgeChunk, Message, Order, Product
@@ -38,9 +38,24 @@ def get_session() -> Iterator[Session]:
 
 def init_db() -> None:
     Base.metadata.create_all(bind=engine)
+    ensure_sqlite_runtime_schema()
     with get_session() as session:
         seed_products_orders_faqs(session)
         seed_knowledge_chunks(session)
+
+
+def ensure_sqlite_runtime_schema() -> None:
+    if not DATABASE_URL.startswith("sqlite"):
+        return
+    inspector = inspect(engine)
+    if "conversations" not in inspector.get_table_names():
+        return
+    columns = {column["name"] for column in inspector.get_columns("conversations")}
+    if "user_id" in columns:
+        return
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE conversations ADD COLUMN user_id INTEGER"))
+        connection.execute(text("CREATE INDEX IF NOT EXISTS ix_conversations_user_id ON conversations (user_id)"))
 
 
 def seed_products_orders_faqs(session: Session) -> None:
@@ -160,16 +175,19 @@ def make_conversation_title(query: str) -> str:
     return title[:24] or "新会话"
 
 
-def upsert_conversation(conversation_id: str, title: str | None = None) -> None:
+def upsert_conversation(conversation_id: str, title: str | None = None, user_id: int | None = None) -> None:
     now = int(time.time())
     with get_session() as session:
         conversation = session.get(Conversation, conversation_id)
         if conversation:
             conversation.updated_at = now
+            if user_id is not None and conversation.user_id is None:
+                conversation.user_id = user_id
         else:
             session.add(
                 Conversation(
                     conversation_id=conversation_id,
+                    user_id=user_id,
                     title=title or "新会话",
                     created_at=now,
                     updated_at=now,
@@ -189,10 +207,15 @@ def save_message(conversation_id: str, role: str, content: str) -> None:
         )
 
 
-def list_conversations(limit: int = 20) -> list[dict[str, Any]]:
+def list_conversations(limit: int = 20, user_id: int | None = None) -> list[dict[str, Any]]:
     with get_session() as session:
+        statement = select(Conversation).order_by(Conversation.updated_at.desc()).limit(limit)
+        if user_id is None:
+            statement = statement.where(Conversation.user_id.is_(None))
+        else:
+            statement = statement.where(Conversation.user_id == user_id)
         conversations = session.scalars(
-            select(Conversation).order_by(Conversation.updated_at.desc()).limit(limit)
+            statement
         ).all()
         results: list[dict[str, Any]] = []
         for conversation in conversations:
@@ -208,6 +231,7 @@ def list_conversations(limit: int = 20) -> list[dict[str, Any]]:
             results.append(
                 {
                     "conversation_id": conversation.conversation_id,
+                    "user_id": conversation.user_id,
                     "title": conversation.title,
                     "created_at": conversation.created_at,
                     "updated_at": conversation.updated_at,
@@ -218,8 +242,15 @@ def list_conversations(limit: int = 20) -> list[dict[str, Any]]:
         return results
 
 
-def get_messages(conversation_id: str) -> list[dict[str, Any]]:
+def get_messages(conversation_id: str, user_id: int | None = None) -> list[dict[str, Any]]:
     with get_session() as session:
+        conversation = session.get(Conversation, conversation_id)
+        if not conversation:
+            return []
+        if user_id is None and conversation.user_id is not None:
+            return []
+        if user_id is not None and conversation.user_id != user_id:
+            return []
         messages = session.scalars(
             select(Message).where(Message.conversation_id == conversation_id).order_by(Message.id.asc())
         ).all()
@@ -227,4 +258,3 @@ def get_messages(conversation_id: str) -> list[dict[str, Any]]:
             model_to_dict(message, ["id", "conversation_id", "role", "content", "created_at"])
             for message in messages
         ]
-

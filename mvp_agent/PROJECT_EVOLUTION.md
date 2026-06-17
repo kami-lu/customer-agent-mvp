@@ -613,11 +613,38 @@ python -m mvp_agent.app
 - 模板/LLM 双模式回复
 - 会话记录保存与历史消息查询
 
-## 17. 当前项目还没有做什么
+## 17. 增加用户登录和会话隔离
+
+### 做了什么
+
+新增了用户与认证能力：
+
+- `User` 用户表
+- `AuthToken` 登录 Token 表
+- 密码 PBKDF2 哈希存储
+- `/auth/register` 注册接口
+- `/auth/login` 登录接口
+- `/me` 当前用户接口
+- `conversations.user_id` 字段
+- Web 页面登录/注册/退出入口
+- 登录用户只读取自己的会话历史
+
+### 为什么这么做
+
+原来的版本所有会话都在同一个列表里，适合单机演示，但不像真实客服系统。加入用户体系后，聊天记录可以按用户隔离，后续也能继续扩展会员信息、工单、订单权限校验和后台客服接管。
+
+### 面试怎么讲
+
+可以说：
+
+```text
+我在会话系统上继续补了用户认证能力：用户注册时使用 PBKDF2 对密码做加盐哈希，登录后生成服务端 Token，前端通过 Authorization Bearer Token 调用接口。后端根据 Token 解析 user_id，并在查询会话和消息时按 user_id 过滤，保证不同用户只能看到自己的历史记录。这个改动让 MVP 从单用户演示升级为更接近真实客服系统的多用户会话模型。
+```
+
+## 18. 当前项目还没有做什么
 
 当前 MVP 暂未实现：
 
-- 用户登录注册
 - 多轮上下文理解
 - MySQL/PostgreSQL
 - Redis 缓存
@@ -629,23 +656,23 @@ python -m mvp_agent.app
 
 这些不是缺陷，而是后续迭代方向。
 
-## 18. 后续迭代路线
+## 19. 后续迭代路线
 
 建议按这个顺序继续做：
 
 1. 继续拆分为更细的目录：`api/`、`tools/`、`services/`。
 2. 接入 MySQL 或 PostgreSQL。
-3. 增加登录注册。
+3. 增加工单表和人工客服接管。
 4. 将轻量 RAG 替换为 embedding + 向量数据库。
 5. 引入 LangGraph 编排 Agent 节点。
 6. 使用 Docker Compose 部署。
 
-## 19. 简历表述建议
+## 20. 简历表述建议
 
 可以写：
 
 ```text
-实现智能家居电商客服 Agent MVP，基于 FastAPI + SQLAlchemy + SQLite 构建可运行的客服问答闭环，并通过 DATABASE_URL 预留 MySQL/PostgreSQL 迁移能力；接入 Alembic 管理数据库 schema 版本；按 FastAPI 路由、Agent 编排、数据库层和 Web 页面进行模块化拆分；设计结构化 Router，输出 intent、tool_name、slots 和路由来源，支持商品咨询、订单物流、售后 FAQ 与知识库问答；封装商品查询、订单查询、售后查询和轻量 RAG 检索工具，基于工具结果生成客服回复并保存会话记录；新增会话列表和历史消息查询接口，提供 Web 聊天页面与 Swagger 接口文档；支持无 API Key 的规则兜底和 DeepSeek API 结构化路由/回复增强。
+实现智能家居电商客服 Agent MVP，基于 FastAPI + SQLAlchemy + SQLite 构建可运行的客服问答闭环，并通过 DATABASE_URL 预留 MySQL/PostgreSQL 迁移能力；接入 Alembic 管理数据库 schema 版本；按 FastAPI 路由、Agent 编排、认证、数据库层和 Web 页面进行模块化拆分；设计结构化 Router，输出 intent、tool_name、slots 和路由来源，支持商品咨询、订单物流、售后 FAQ 与知识库问答；封装商品查询、订单查询、售后查询和轻量 RAG 检索工具，基于工具结果生成客服回复并保存会话记录；实现用户注册登录、Token 认证和按用户隔离的会话历史；提供 Web 聊天页面与 Swagger 接口文档；支持无 API Key 的规则兜底和 DeepSeek API 结构化路由/回复增强。
 ```
 
 不要写：

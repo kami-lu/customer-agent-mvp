@@ -45,14 +45,41 @@ class KnowledgeChunk(Base):
     source: Mapped[str] = mapped_column(String(160), nullable=False)
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    username: Mapped[str] = mapped_column(String(80), unique=True, nullable=False, index=True)
+    password_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    tokens: Mapped[list["AuthToken"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    conversations: Mapped[list["Conversation"]] = relationship(back_populates="user")
+
+
+class AuthToken(Base):
+    __tablename__ = "auth_tokens"
+
+    token: Mapped[str] = mapped_column(String(96), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    created_at: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    user: Mapped[User] = relationship(back_populates="tokens")
+
+
 class Conversation(Base):
     __tablename__ = "conversations"
 
     conversation_id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     title: Mapped[str] = mapped_column(String(120), nullable=False)
     created_at: Mapped[int] = mapped_column(Integer, nullable=False)
     updated_at: Mapped[int] = mapped_column(Integer, nullable=False)
 
+    user: Mapped[User | None] = relationship(back_populates="conversations")
     messages: Mapped[list["Message"]] = relationship(
         back_populates="conversation",
         cascade="all, delete-orphan",

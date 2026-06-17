@@ -44,6 +44,38 @@ CHAT_HTML = """<!doctype html>
       padding: 6px 10px;
       border-radius: 999px;
     }
+    .top-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .auth-panel {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: white;
+      border: 1px solid #dfe5ef;
+      border-radius: 8px;
+      padding: 6px;
+    }
+    .auth-panel input {
+      width: 110px;
+      border: 1px solid #dfe5ef;
+      border-radius: 6px;
+      font-size: 13px;
+      padding: 7px 8px;
+    }
+    .auth-panel button {
+      padding: 7px 10px;
+      font-size: 13px;
+      background: #223047;
+    }
+    .auth-user {
+      font-size: 13px;
+      color: #43536b;
+    }
     #sidebar {
       grid-row: 2 / 4;
       background: white;
@@ -180,7 +212,17 @@ CHAT_HTML = """<!doctype html>
   <main>
     <header>
       <h1>智能客服 Agent MVP</h1>
-      <span class="status">本地服务运行中</span>
+      <div class="top-actions">
+        <span id="auth-user" class="auth-user">游客模式</span>
+        <div class="auth-panel">
+          <input id="username" autocomplete="username" placeholder="用户名" />
+          <input id="password" autocomplete="current-password" type="password" placeholder="密码" />
+          <button id="login" type="button">登录</button>
+          <button id="register" type="button">注册</button>
+          <button id="logout" type="button">退出</button>
+        </div>
+        <span class="status">本地服务运行中</span>
+      </div>
     </header>
     <aside id="sidebar">
       <div class="sidebar-title">
@@ -209,10 +251,73 @@ CHAT_HTML = """<!doctype html>
     const form = document.querySelector("#chat-form");
     const input = document.querySelector("#query");
     const send = document.querySelector("#send");
+    const usernameInput = document.querySelector("#username");
+    const passwordInput = document.querySelector("#password");
+    const loginButton = document.querySelector("#login");
+    const registerButton = document.querySelector("#register");
+    const logoutButton = document.querySelector("#logout");
+    const authUser = document.querySelector("#auth-user");
     const messages = document.querySelector("#messages");
     const conversationList = document.querySelector("#conversation-list");
     const newChat = document.querySelector("#new-chat");
     let currentConversationId = `web-${Date.now()}`;
+    let authToken = localStorage.getItem("customer_agent_token") || "";
+
+    function authHeaders(extra = {}) {
+      const headers = {...extra};
+      if (authToken) {
+        headers.Authorization = `Bearer ${authToken}`;
+      }
+      return headers;
+    }
+
+    function setCurrentUser(user) {
+      authUser.textContent = user ? `已登录：${user.username}` : "游客模式";
+      logoutButton.style.display = user ? "inline-block" : "none";
+    }
+
+    async function authRequest(path) {
+      const username = usernameInput.value.trim();
+      const password = passwordInput.value;
+      if (!username || !password) {
+        addMessage("请先输入用户名和密码。", "bot");
+        return;
+      }
+      const resp = await fetch(path, {
+        method: "POST",
+        headers: {"Content-Type": "application/json; charset=utf-8"},
+        body: JSON.stringify({username, password})
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        throw new Error(data.detail || "认证失败");
+      }
+      authToken = data.token;
+      localStorage.setItem("customer_agent_token", authToken);
+      setCurrentUser(data.user);
+      currentConversationId = `web-${Date.now()}`;
+      resetMessages();
+      await loadConversations();
+    }
+
+    async function restoreLogin() {
+      if (!authToken) {
+        setCurrentUser(null);
+        return;
+      }
+      try {
+        const resp = await fetch("/me", {headers: authHeaders()});
+        if (!resp.ok) {
+          throw new Error("token invalid");
+        }
+        const data = await resp.json();
+        setCurrentUser(data.user);
+      } catch (error) {
+        authToken = "";
+        localStorage.removeItem("customer_agent_token");
+        setCurrentUser(null);
+      }
+    }
 
     function addMessage(text, kind, meta = "") {
       const item = document.createElement("div");
@@ -234,7 +339,7 @@ CHAT_HTML = """<!doctype html>
     }
 
     async function loadConversations() {
-      const resp = await fetch("/conversations");
+      const resp = await fetch("/conversations", {headers: authHeaders()});
       const data = await resp.json();
       conversationList.innerHTML = "";
       data.conversations.forEach((conversation) => {
@@ -253,7 +358,7 @@ CHAT_HTML = """<!doctype html>
 
     async function loadMessages(conversationId) {
       currentConversationId = conversationId;
-      const resp = await fetch(`/conversations/${encodeURIComponent(conversationId)}/messages`);
+      const resp = await fetch(`/conversations/${encodeURIComponent(conversationId)}/messages`, {headers: authHeaders()});
       const data = await resp.json();
       messages.innerHTML = "";
       if (data.messages.length === 0) {
@@ -273,7 +378,7 @@ CHAT_HTML = """<!doctype html>
       try {
         const resp = await fetch("/chat", {
           method: "POST",
-          headers: {"Content-Type": "application/json; charset=utf-8"},
+          headers: authHeaders({"Content-Type": "application/json; charset=utf-8"}),
           body: JSON.stringify({query, conversation_id: currentConversationId})
         });
         const data = await resp.json();
@@ -310,7 +415,32 @@ CHAT_HTML = """<!doctype html>
       input.focus();
     });
 
-    loadConversations();
+    loginButton.addEventListener("click", async () => {
+      try {
+        await authRequest("/auth/login");
+      } catch (error) {
+        addMessage(`登录失败：${error.message}`, "bot");
+      }
+    });
+
+    registerButton.addEventListener("click", async () => {
+      try {
+        await authRequest("/auth/register");
+      } catch (error) {
+        addMessage(`注册失败：${error.message}`, "bot");
+      }
+    });
+
+    logoutButton.addEventListener("click", async () => {
+      authToken = "";
+      localStorage.removeItem("customer_agent_token");
+      setCurrentUser(null);
+      currentConversationId = `web-${Date.now()}`;
+      resetMessages();
+      await loadConversations();
+    });
+
+    restoreLogin().then(loadConversations);
   </script>
 </body>
 </html>

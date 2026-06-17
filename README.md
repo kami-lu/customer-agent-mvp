@@ -10,6 +10,7 @@
 - 商品查询、订单物流查询、售后 FAQ 查询工具
 - 轻量 RAG：基于本地知识库 chunk 的 TF-IDF 相似度检索
 - SQLite 会话管理与历史消息保存
+- 用户注册/登录与按用户隔离的会话历史
 - SQLAlchemy ORM 数据层，默认 SQLite，可通过 `DATABASE_URL` 切换数据库
 - Alembic 数据库迁移，支持表结构版本化管理
 - DeepSeek API 可选接入
@@ -21,6 +22,7 @@
 mvp_agent/
   app.py                 # FastAPI 路由和服务入口
   agent.py               # Router、工具调用、RAG 检索、DeepSeek 调用
+  auth.py                # 密码哈希、Token 生成和用户认证
   db.py                  # SQLite 建表、seed 数据、会话和消息读写
   models.py              # SQLAlchemy ORM 模型
   web.py                 # 浏览器聊天页面
@@ -81,6 +83,18 @@ http://127.0.0.1:8010/docs
 扫地机器人怎么维护
 ```
 
+## 登录与会话隔离
+
+浏览器页面支持游客模式，也支持注册/登录。登录后请求会携带 Bearer Token，后端会把聊天记录绑定到当前用户，左侧会话历史只展示自己的会话。
+
+可用接口：
+
+```text
+POST /auth/register
+POST /auth/login
+GET /me
+```
+
 ## DeepSeek 接入
 
 不设置 API Key 时，系统会使用规则路由和模板回复。设置环境变量后，会使用 DeepSeek 做结构化路由和回复生成。
@@ -101,7 +115,6 @@ python -m mvp_agent.app
 这是一个展示用的最小可运行闭环，不是完整企业级客服系统。后续可以继续扩展：
 
 - MySQL/PostgreSQL
-- 用户登录注册
 - Redis 缓存
 - embedding + 向量数据库
 - LangGraph 多节点编排

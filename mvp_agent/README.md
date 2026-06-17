@@ -11,6 +11,7 @@
 - 回复生成：没有 API Key 时使用规则模板，有 `DEEPSEEK_API_KEY` 时调用 DeepSeek 生成客服回复
 - 会话存储：把用户问题和助手回复写入 SQLite
 - 会话管理：支持会话列表和历史消息查询
+- 用户系统：支持注册、登录、Token 认证和按用户隔离会话历史
 - SQLAlchemy ORM 数据层：默认 SQLite，可通过 `DATABASE_URL` 切换数据库
 - Alembic 数据库迁移：支持表结构版本化管理
 - FastAPI 接口：提供 `/health`、`/chat` 和 `/docs`
@@ -21,8 +22,9 @@
 mvp_agent/
   app.py              # FastAPI 路由和服务入口
   agent.py            # Router、工具调用、RAG 检索、DeepSeek 调用
+  auth.py             # 密码哈希、Token 生成和用户认证
   db.py               # SQLite 建表、seed 数据、会话和消息读写
-  models.py           # Product、Order、FAQ、KnowledgeChunk、Conversation、Message ORM 模型
+  models.py           # User、AuthToken、Product、Order、FAQ、KnowledgeChunk、Conversation、Message ORM 模型
   web.py              # 浏览器聊天页面
   README.md           # 运行说明
   .env.example        # 可选的大模型配置示例
@@ -96,6 +98,16 @@ http://127.0.0.1:8010/docs
 GET /conversations
 GET /conversations/{conversation_id}/messages
 ```
+
+认证接口：
+
+```text
+POST /auth/register
+POST /auth/login
+GET /me
+```
+
+登录后前端会把 Token 保存在浏览器 `localStorage`，请求聊天和历史记录接口时通过 `Authorization: Bearer <token>` 传给后端。后端按 `user_id` 过滤会话，避免不同用户看到彼此的聊天历史。
 
 ## 测试
 

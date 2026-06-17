@@ -366,14 +366,14 @@ def call_deepseek(query: str, intent: str, context: dict[str, Any]) -> str | Non
         return None
 
 
-def run_agent(query: str, conversation_id: str = "demo") -> dict[str, Any]:
-    upsert_conversation(conversation_id, make_conversation_title(query))
+def run_agent(query: str, conversation_id: str = "demo", user_id: int | None = None) -> dict[str, Any]:
+    upsert_conversation(conversation_id, make_conversation_title(query), user_id)
     route = route_query(query)
     context = build_context(route, query)
     answer = call_deepseek(query, route.intent, context) or fallback_response(route.intent, context)
     save_message(conversation_id, "user", query)
     save_message(conversation_id, "assistant", answer)
-    upsert_conversation(conversation_id)
+    upsert_conversation(conversation_id, user_id=user_id)
     return {
         "conversation_id": conversation_id,
         "intent": route.intent,
