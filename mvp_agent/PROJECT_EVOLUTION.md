@@ -399,19 +399,21 @@ Router 增加 `rag` 意图：
 
 ### 为什么这么做
 
-完整 RAG 通常会使用 embedding 模型和向量数据库，但 MVP 阶段先用轻量本地检索更合适：
+完整 RAG 通常会使用 embedding 模型和向量数据库，但早期 MVP 阶段先用轻量本地检索更合适：
 
 - 不需要额外部署 Chroma、Milvus、Weaviate。
 - 不依赖 embedding API。
 - 检索逻辑透明，面试时容易解释。
 - 后续可以把 `search_knowledge` 内部实现替换成向量检索，而不影响上层 Agent 流程。
 
+后续迭代中已经将该检索层升级为 Chroma 向量检索优先，并保留 TF-IDF 作为兜底。
+
 ### 面试怎么讲
 
 可以说：
 
 ```text
-我先实现了一个轻量 RAG：把售后和产品说明切成 knowledge_chunks，用 TF-IDF + 余弦相似度做本地检索，返回 top chunks 给回复生成模块。这样先跑通知识库问答链路，后续可以平滑替换为 embedding + 向量数据库。
+我先实现了一个轻量 RAG：把售后和产品说明切成 knowledge_chunks，用 TF-IDF + 余弦相似度做本地检索，返回 top chunks 给回复生成模块。这样先跑通知识库问答链路，再把检索层平滑升级为 Chroma 向量检索，而不影响上层 Agent 流程。
 ```
 
 ## 12. 模块化拆分
@@ -605,7 +607,7 @@ python -m mvp_agent.app
 - 工具调用
 - slots 槽位抽取
 - SQLite 查询
-- 轻量 RAG 知识库检索
+- Chroma / TF-IDF RAG 知识库检索
 - 检索来源和相似度分数
 - 模块化代码结构
 - SQLAlchemy ORM 数据层
@@ -668,7 +670,31 @@ python -m mvp_agent.app
 在登录和会话隔离之后，我继续补了售后工单闭环。用户登录后可以基于当前会话创建工单，工单表关联 user_id 和 conversation_id，后续可以查看自己的工单并进行 open、processing、resolved、closed 的状态流转。这样 Agent 无法直接解决或需要人工跟进的问题可以沉淀为业务对象，为后续人工客服接管、后台处理和消息通知做准备。
 ```
 
-## 19. 当前项目还没有做什么
+## 19. 增加 Chroma 向量数据库
+
+### 做了什么
+
+新增了向量检索能力：
+
+- `vector_store.py` 封装 Chroma 本地持久化向量库
+- `tools/build_chroma_index.py` 将 SQLite 中的知识库 chunk 写入 Chroma
+- RAG 查询优先走 Chroma 本地向量检索
+- Chroma 不可用或索引为空时自动回退 TF-IDF
+- `mvp_agent/chroma_db/` 作为本地索引目录并加入 `.gitignore`
+
+### 为什么这么做
+
+早期 TF-IDF 检索依赖关键词重合，适合小知识库演示，但面对更口语化的问题时召回能力不足。引入 Chroma 后，可以把知识库 chunk 持久化为向量索引；同时保留 TF-IDF 兜底，避免向量库依赖或索引未构建导致项目跑不起来。当前版本使用轻量本地 embedding 函数，后续可替换为 sentence-transformers 或云端 embedding 模型。
+
+### 面试怎么讲
+
+可以说：
+
+```text
+我将 RAG 检索层从 TF-IDF 轻量检索升级为 Chroma 向量数据库优先召回，并保留 TF-IDF 兜底。知识库 chunk 仍存放在 SQLite 中，构建索引脚本会读取 chunk 并写入本地 Chroma 持久化目录。查询时 Agent 先走 Chroma 向量检索，若 Chroma 不可用或索引为空，再自动回退到 TF-IDF，兼顾召回能力和项目可复现性。
+```
+
+## 20. 当前项目还没有做什么
 
 当前 MVP 暂未实现：
 
@@ -677,30 +703,29 @@ python -m mvp_agent.app
 - Redis 缓存
 - 完整人工客服后台
 - Neo4j 图谱查询
-- embedding 向量化和向量数据库
 - LangGraph 节点编排
 - Docker 部署
 - 公网部署
 
 这些不是缺陷，而是后续迭代方向。
 
-## 20. 后续迭代路线
+## 21. 后续迭代路线
 
 建议按这个顺序继续做：
 
 1. 继续拆分为更细的目录：`api/`、`tools/`、`services/`。
 2. 接入 MySQL 或 PostgreSQL。
 3. 增加人工客服后台和工单分配。
-4. 将轻量 RAG 替换为 embedding + 向量数据库。
+4. 将本地 Chroma 进一步升级为可部署的向量服务或混合检索。
 5. 引入 LangGraph 编排 Agent 节点。
 6. 使用 Docker Compose 部署。
 
-## 21. 简历表述建议
+## 22. 简历表述建议
 
 可以写：
 
 ```text
-实现智能家居电商客服 Agent MVP，基于 FastAPI + SQLAlchemy + SQLite 构建可运行的客服问答闭环，并通过 DATABASE_URL 预留 MySQL/PostgreSQL 迁移能力；接入 Alembic 管理数据库 schema 版本；按 FastAPI 路由、Agent 编排、认证、数据库层和 Web 页面进行模块化拆分；设计结构化 Router，输出 intent、tool_name、slots 和路由来源，支持商品咨询、订单物流、售后 FAQ 与知识库问答；封装商品查询、订单查询、售后查询和轻量 RAG 检索工具，基于工具结果生成客服回复并保存会话记录；实现用户注册登录、Token 认证和按用户隔离的会话历史；新增售后工单闭环，支持用户基于会话创建工单、查看工单和状态流转；提供 Web 聊天页面与 Swagger 接口文档；支持无 API Key 的规则兜底和 DeepSeek API 结构化路由/回复增强。
+实现智能家居电商客服 Agent MVP，基于 FastAPI + SQLAlchemy + SQLite 构建可运行的客服问答闭环，并通过 DATABASE_URL 预留 MySQL/PostgreSQL 迁移能力；接入 Alembic 管理数据库 schema 版本；按 FastAPI 路由、Agent 编排、认证、数据库层和 Web 页面进行模块化拆分；设计结构化 Router，输出 intent、tool_name、slots 和路由来源，支持商品咨询、订单物流、售后 FAQ 与知识库问答；封装商品查询、订单查询、售后查询和 RAG 检索工具，支持 Chroma 向量检索优先与 TF-IDF 兜底；实现用户注册登录、Token 认证和按用户隔离的会话历史；新增售后工单闭环，支持用户基于会话创建工单、查看工单和状态流转；提供 Web 聊天页面与 Swagger 接口文档；支持无 API Key 的规则兜底和 DeepSeek API 结构化路由/回复增强。
 ```
 
 不要写：

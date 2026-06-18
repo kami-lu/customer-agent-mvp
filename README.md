@@ -8,7 +8,7 @@
 - 浏览器聊天页面
 - 结构化 Router：输出 `intent`、`tool_name`、`slots`、`route_source`
 - 商品查询、订单物流查询、售后 FAQ 查询工具
-- 轻量 RAG：基于本地知识库 chunk 的 TF-IDF 相似度检索
+- RAG 检索：支持 Chroma 本地向量库，未构建索引时自动回退 TF-IDF 检索
 - SQLite 会话管理与历史消息保存
 - 用户注册/登录与按用户隔离的会话历史
 - 售后工单：支持创建工单、查看工单和状态流转
@@ -26,6 +26,7 @@ mvp_agent/
   auth.py                # 密码哈希、Token 生成和用户认证
   db.py                  # SQLite 建表、seed 数据、会话和消息读写
   models.py              # SQLAlchemy ORM 模型
+  vector_store.py        # Chroma 向量库索引构建和语义检索
   web.py                 # 浏览器聊天页面
   README.md              # 详细运行说明
   PROJECT_EVOLUTION.md   # 项目演进和面试讲法
@@ -33,6 +34,8 @@ mvp_agent/
 migrations/
   env.py                 # Alembic 迁移环境
   versions/              # 数据库迁移脚本
+tools/
+  build_chroma_index.py  # 将知识库 chunk 写入 Chroma 向量库
 ```
 
 ## 快速启动
@@ -84,6 +87,25 @@ http://127.0.0.1:8010/docs
 扫地机器人怎么维护
 ```
 
+## Chroma 向量库
+
+默认 RAG 会优先查询本地 Chroma 向量库。当前使用项目内置的轻量 embedding 函数写入 Chroma；如果还没有安装依赖或没有构建索引，会自动回退到 TF-IDF 检索，保证项目仍可运行。
+
+构建向量索引：
+
+```powershell
+pip install chromadb
+python tools/build_chroma_index.py
+```
+
+索引文件会保存在：
+
+```text
+mvp_agent/chroma_db/
+```
+
+该目录属于本地运行产物，不提交到 GitHub。
+
 ## 登录与会话隔离
 
 浏览器页面支持游客模式，也支持注册/登录。登录后请求会携带 Bearer Token，后端会把聊天记录绑定到当前用户，左侧会话历史只展示自己的会话。
@@ -130,6 +152,5 @@ python -m mvp_agent.app
 - MySQL/PostgreSQL
 - Redis 缓存
 - 人工客服后台
-- embedding + 向量数据库
 - LangGraph 多节点编排
 - Docker Compose 部署

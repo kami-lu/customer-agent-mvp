@@ -13,6 +13,7 @@ from sqlalchemy import case, or_, select
 
 from .db import get_session, make_conversation_title, model_to_dict, save_message, upsert_conversation
 from .models import FAQ, KnowledgeChunk, Order, Product
+from .vector_store import VectorStoreUnavailable, search_chroma
 
 
 @dataclass
@@ -218,7 +219,7 @@ def cosine_similarity(query_tokens: list[str], doc_tokens: list[str], doc_count:
     return score / (query_norm * doc_norm)
 
 
-def search_knowledge(query: str, limit: int = 3) -> list[dict[str, Any]]:
+def search_knowledge_tfidf(query: str, limit: int = 3) -> list[dict[str, Any]]:
     with get_session() as session:
         chunks = session.scalars(select(KnowledgeChunk)).all()
         documents = [model_to_dict(chunk, ["id", "title", "content", "source"]) for chunk in chunks]
@@ -231,9 +232,19 @@ def search_knowledge(query: str, limit: int = 3) -> list[dict[str, Any]]:
     for doc, tokens in zip(documents, tokenized_docs):
         score = cosine_similarity(query_tokens, tokens, len(documents), doc_freq)
         if score > 0:
-            scored.append({**doc, "score": round(score, 4)})
+            scored.append({**doc, "score": round(score, 4), "retrieval": "tfidf"})
     scored.sort(key=lambda item: item["score"], reverse=True)
     return scored[:limit]
+
+
+def search_knowledge(query: str, limit: int = 3) -> list[dict[str, Any]]:
+    try:
+        vector_results = search_chroma(query, limit)
+        if vector_results:
+            return vector_results
+    except (VectorStoreUnavailable, Exception):
+        pass
+    return search_knowledge_tfidf(query, limit)
 
 
 def search_products(query: str, keywords: list[str] | None = None) -> list[dict[str, Any]]:

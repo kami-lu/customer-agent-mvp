@@ -7,7 +7,7 @@
 - 意图路由：商品咨询、订单查询、售后问题、普通问题
 - 结构化路由：输出 `intent`、`tool_name`、`slots`、`route_source`
 - 工具调用：根据意图查询 SQLite 商品表、订单表、FAQ 表
-- 轻量 RAG：基于本地知识库 chunk 做 TF-IDF 相似度检索
+- RAG 检索：优先使用 Chroma 本地向量库，未安装依赖或未构建索引时回退 TF-IDF 检索
 - 回复生成：没有 API Key 时使用规则模板，有 `DEEPSEEK_API_KEY` 时调用 DeepSeek 生成客服回复
 - 会话存储：把用户问题和助手回复写入 SQLite
 - 会话管理：支持会话列表和历史消息查询
@@ -26,6 +26,7 @@ mvp_agent/
   auth.py             # 密码哈希、Token 生成和用户认证
   db.py               # SQLite 建表、seed 数据、会话和消息读写
   models.py           # User、AuthToken、Product、Order、FAQ、KnowledgeChunk、Conversation、Message、Ticket ORM 模型
+  vector_store.py     # Chroma 向量库索引构建和语义检索
   web.py              # 浏览器聊天页面
   README.md           # 运行说明
   .env.example        # 可选的大模型配置示例
@@ -127,6 +128,28 @@ resolved
 closed
 ```
 
+## 可选：构建 Chroma 向量索引
+
+安装依赖：
+
+```bash
+pip install -r mvp_agent/requirements.txt
+```
+
+构建索引：
+
+```bash
+python tools/build_chroma_index.py
+```
+
+索引会写入本地目录：
+
+```text
+mvp_agent/chroma_db/
+```
+
+RAG 检索会优先使用 Chroma。当前使用项目内置的轻量 embedding 函数写入本地向量库；若 Chroma 依赖缺失、索引为空或查询失败，则自动回退到 TF-IDF。后续可以把 embedding 函数替换为 sentence-transformers 或云端 embedding 模型。
+
 ## 测试
 
 PowerShell：
@@ -158,7 +181,7 @@ Invoke-RestMethod -Uri http://127.0.0.1:8010/chat -Method Post -ContentType "app
 }
 ```
 
-知识库类问题会走 RAG 工具：
+知识库类问题会走 RAG 工具，`retrieval` 会标明检索方式：
 
 ```json
 {
@@ -169,7 +192,8 @@ Invoke-RestMethod -Uri http://127.0.0.1:8010/chat -Method Post -ContentType "app
       {
         "title": "智能门锁安装说明",
         "source": "install_policy.md",
-        "score": 0.42
+        "score": 0.42,
+        "retrieval": "vector"
       }
     ]
   }
