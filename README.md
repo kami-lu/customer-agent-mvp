@@ -106,6 +106,14 @@ mvp_agent/chroma_db/
 
 该目录属于本地运行产物，不提交到 GitHub。
 
+添加一条新知识：
+
+```powershell
+python tools/add_knowledge_doc.py --title "智能摄像头安装说明" --source "camera_install_manual.md" --content "NovaCam C1 智能摄像头支持壁装和桌面摆放。安装前需要确认 Wi-Fi 为 2.4GHz，并在 App 中扫描机身二维码完成绑定。"
+```
+
+脚本会先写入 SQLite 的 `knowledge_chunks` 表，再重建 Chroma 索引。
+
 ## 登录与会话隔离
 
 浏览器页面支持游客模式，也支持注册/登录。登录后请求会携带 Bearer Token，后端会把聊天记录绑定到当前用户，左侧会话历史只展示自己的会话。

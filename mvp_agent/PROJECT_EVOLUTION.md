@@ -678,6 +678,7 @@ python -m mvp_agent.app
 
 - `vector_store.py` 封装 Chroma 本地持久化向量库
 - `tools/build_chroma_index.py` 将 SQLite 中的知识库 chunk 写入 Chroma
+- `tools/add_knowledge_doc.py` 支持通过命令行添加或更新知识库文档
 - RAG 查询优先走 Chroma 本地向量检索
 - Chroma 不可用或索引为空时自动回退 TF-IDF
 - `mvp_agent/chroma_db/` 作为本地索引目录并加入 `.gitignore`

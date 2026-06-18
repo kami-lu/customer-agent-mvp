@@ -150,6 +150,14 @@ mvp_agent/chroma_db/
 
 RAG 检索会优先使用 Chroma。当前使用项目内置的轻量 embedding 函数写入本地向量库；若 Chroma 依赖缺失、索引为空或查询失败，则自动回退到 TF-IDF。后续可以把 embedding 函数替换为 sentence-transformers 或云端 embedding 模型。
 
+添加新知识：
+
+```powershell
+python tools/add_knowledge_doc.py --title "智能摄像头安装说明" --source "camera_install_manual.md" --content "NovaCam C1 智能摄像头支持壁装和桌面摆放。安装前需要确认 Wi-Fi 为 2.4GHz，并在 App 中扫描机身二维码完成绑定。"
+```
+
+这条命令会写入 `knowledge_chunks`，并自动重建 Chroma 索引。
+
 ## 测试
 
 PowerShell：
