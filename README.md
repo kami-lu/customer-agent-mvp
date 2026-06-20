@@ -29,7 +29,6 @@ mvp_agent/
   vector_store.py        # Chroma 向量库索引构建和语义检索
   web.py                 # 浏览器聊天页面
   README.md              # 详细运行说明
-  PROJECT_EVOLUTION.md   # 项目演进和面试讲法
   requirements.txt       # MVP 最小依赖
 migrations/
   env.py                 # Alembic 迁移环境

@@ -48,5 +48,8 @@ mvp_agent/customer_agent.sqlite3
 mvp_agent/server.*.log
 mvp_agent/chroma_db/
 
+# Personal interview notes, keep local only
+mvp_agent/PROJECT_EVOLUTION.md
+
 # Original reference project kept locally, not part of the public MVP repo
 llm_backend/
