@@ -89,12 +89,12 @@ http://127.0.0.1:8010/docs
 
 ## Chroma 向量库
 
-默认 RAG 会优先查询本地 Chroma 向量库。当前使用项目内置的轻量 embedding 函数写入 Chroma；如果还没有安装依赖或没有构建索引，会自动回退到 TF-IDF 检索，保证项目仍可运行。
+默认 RAG 会优先查询本地 Chroma 向量库。当前 embedding 模型使用 `BAAI/bge-small-zh-v1.5`，适合中文客服知识库语义召回；如果还没有安装依赖或没有构建索引，会自动回退到 TF-IDF 检索，保证项目仍可运行。
 
 构建向量索引：
 
 ```powershell
-pip install chromadb
+pip install -r mvp_agent/requirements.txt
 python tools/build_chroma_index.py
 ```
 
@@ -106,6 +106,8 @@ mvp_agent/chroma_db/
 
 该目录属于本地运行产物，不提交到 GitHub。
 
+说明：`tools/build_chroma_index.py` 会在首次运行时下载 BGE 模型；服务运行时默认只读取本地模型缓存，避免每次查询都访问 Hugging Face。
+
 添加一条新知识：
 
 ```powershell
@@ -113,6 +115,15 @@ python tools/add_knowledge_doc.py --title "智能摄像头安装说明" --source
 ```
 
 脚本会先写入 SQLite 的 `knowledge_chunks` 表，再重建 Chroma 索引。
+
+导入文档：
+
+```powershell
+python tools/import_document_knowledge.py "C:\path\to\manual.pdf" --title "产品说明书" --source "manual.pdf"
+python tools/import_document_knowledge.py "C:\path\to\manual.docx" --title "产品说明书" --source "manual.docx"
+```
+
+脚本支持 PDF、DOCX、TXT、MD，会自动抽取文本，按段落切成多个 chunk，写入 `knowledge_chunks` 表，并重建 Chroma 索引。再次导入同一个 `source` 时默认会替换旧 chunk，避免重复入库。
 
 ## 登录与会话隔离
 

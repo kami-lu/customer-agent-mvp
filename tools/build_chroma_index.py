@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
 import sys
 
 
@@ -13,13 +14,14 @@ from mvp_agent.vector_store import CHROMA_DIR, VectorStoreUnavailable, build_chr
 
 
 def main() -> None:
+    os.environ.setdefault("BGE_ALLOW_DOWNLOAD", "1")
     init_db()
     try:
         count = build_chroma_index()
     except VectorStoreUnavailable as exc:
         raise SystemExit(
             "Chroma dependencies are missing. Install them with: "
-            "pip install chromadb"
+            "pip install chromadb sentence-transformers"
         ) from exc
     print(f"Built Chroma index with {count} chunks at {CHROMA_DIR}")
 

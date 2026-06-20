@@ -148,7 +148,9 @@ python tools/build_chroma_index.py
 mvp_agent/chroma_db/
 ```
 
-RAG 检索会优先使用 Chroma。当前使用项目内置的轻量 embedding 函数写入本地向量库；若 Chroma 依赖缺失、索引为空或查询失败，则自动回退到 TF-IDF。后续可以把 embedding 函数替换为 sentence-transformers 或云端 embedding 模型。
+RAG 检索会优先使用 Chroma。当前 embedding 模型使用 `BAAI/bge-small-zh-v1.5`，适合中文客服知识库语义召回；若 Chroma 依赖缺失、模型未下载、索引为空或查询失败，则自动回退到 TF-IDF。
+
+说明：`tools/build_chroma_index.py` 会在首次运行时下载 BGE 模型；服务运行时默认只读取本地模型缓存，避免每次查询都访问 Hugging Face。
 
 添加新知识：
 
@@ -157,6 +159,15 @@ python tools/add_knowledge_doc.py --title "智能摄像头安装说明" --source
 ```
 
 这条命令会写入 `knowledge_chunks`，并自动重建 Chroma 索引。
+
+导入文档：
+
+```powershell
+python tools/import_document_knowledge.py "C:\path\to\manual.pdf" --title "产品说明书" --source "manual.pdf"
+python tools/import_document_knowledge.py "C:\path\to\manual.docx" --title "产品说明书" --source "manual.docx"
+```
+
+脚本支持 PDF、DOCX、TXT、MD，会自动抽取文本并切成多个 chunk。默认情况下，相同 `source` 的旧 chunk 会被替换，避免重复导入。
 
 ## 测试
 

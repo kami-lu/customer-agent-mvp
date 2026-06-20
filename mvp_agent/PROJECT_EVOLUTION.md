@@ -679,20 +679,21 @@ python -m mvp_agent.app
 - `vector_store.py` 封装 Chroma 本地持久化向量库
 - `tools/build_chroma_index.py` 将 SQLite 中的知识库 chunk 写入 Chroma
 - `tools/add_knowledge_doc.py` 支持通过命令行添加或更新知识库文档
+- `tools/import_document_knowledge.py` 支持导入 PDF、DOCX、TXT、MD 并自动切分为多个知识库 chunk
 - RAG 查询优先走 Chroma 本地向量检索
 - Chroma 不可用或索引为空时自动回退 TF-IDF
 - `mvp_agent/chroma_db/` 作为本地索引目录并加入 `.gitignore`
 
 ### 为什么这么做
 
-早期 TF-IDF 检索依赖关键词重合，适合小知识库演示，但面对更口语化的问题时召回能力不足。引入 Chroma 后，可以把知识库 chunk 持久化为向量索引；同时保留 TF-IDF 兜底，避免向量库依赖或索引未构建导致项目跑不起来。当前版本使用轻量本地 embedding 函数，后续可替换为 sentence-transformers 或云端 embedding 模型。
+早期 TF-IDF 检索依赖关键词重合，适合小知识库演示，但面对更口语化的问题时召回能力不足。引入 Chroma 后，可以把知识库 chunk 持久化为向量索引；同时保留 TF-IDF 兜底，避免向量库依赖或索引未构建导致项目跑不起来。当前版本使用 `BAAI/bge-small-zh-v1.5` 作为中文 embedding 模型。
 
 ### 面试怎么讲
 
 可以说：
 
 ```text
-我将 RAG 检索层从 TF-IDF 轻量检索升级为 Chroma 向量数据库优先召回，并保留 TF-IDF 兜底。知识库 chunk 仍存放在 SQLite 中，构建索引脚本会读取 chunk 并写入本地 Chroma 持久化目录。查询时 Agent 先走 Chroma 向量检索，若 Chroma 不可用或索引为空，再自动回退到 TF-IDF，兼顾召回能力和项目可复现性。
+我将 RAG 检索层从 TF-IDF 轻量检索升级为 Chroma 向量数据库优先召回，并使用 BAAI/bge-small-zh-v1.5 作为中文语义 embedding 模型，同时保留 TF-IDF 兜底。知识库 chunk 仍存放在 SQLite 中，构建索引脚本会读取 chunk 并写入本地 Chroma 持久化目录。查询时 Agent 先走 Chroma 向量检索，若 Chroma 不可用或索引为空，再自动回退到 TF-IDF，兼顾语义召回能力和项目可复现性。
 ```
 
 ## 20. 当前项目还没有做什么

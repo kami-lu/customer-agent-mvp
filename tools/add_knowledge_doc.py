@@ -40,7 +40,7 @@ def add_knowledge_doc(title: str, content: str, source: str, rebuild_index: bool
             print(f"Rebuilt Chroma index with {count} chunks.")
         except VectorStoreUnavailable as exc:
             print(f"Chroma index was not rebuilt: {exc}")
-            print("Install Chroma with: pip install chromadb")
+            print("Install vector dependencies with: pip install chromadb sentence-transformers")
     return chunk_id
 
 
